@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+mlruns/
+data/
+timestamp.txt
+.ipynb_checkpoints/
