@@ -5,3 +5,4 @@ mlruns/
 data/
 timestamp.txt
 .ipynb_checkpoints/
+.venv/

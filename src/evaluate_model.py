@@ -18,7 +18,7 @@ def evaluate(model, X_test, y_test):
     y_predict = model.predict(X_test)
     return {
         "Accuracy": accuracy_score(y_test, y_predict),
-        "F1_Score": f1_score(y_test, y_predict),
+        "F1_Score": f1_score(y_test, y_predict, average='macro'),
     }
 
 

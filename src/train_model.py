@@ -3,19 +3,19 @@ import mlflow, datetime, os, pickle
 # import sklearn
 import numpy as np
 from joblib import dump
-from sklearn.datasets import load_breast_cancer
+from sklearn.datasets import load_wine
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 import sys
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 import argparse
 
 sys.path.insert(0, os.path.abspath('..'))
 
 
 def load_and_split_data(test_size=0.2, val_size=0.25, random_state=0):
-    """Split the breast cancer dataset into train/validation/test sets (60/20/20 by default)."""
-    X, y = load_breast_cancer(return_X_y=True)
+    """Split the wine dataset into train/validation/test sets (60/20/20 by default)."""
+    X, y = load_wine(return_X_y=True)
     X_train_val, X_test, y_train_val, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
@@ -38,9 +38,9 @@ def tune_hyperparameters(X_train, y_train, X_val, y_val, param_grid, random_stat
     for n_estimators in param_grid["n_estimators"]:
         for max_depth in param_grid["max_depth"]:
             params = {"n_estimators": n_estimators, "max_depth": max_depth}
-            model = RandomForestClassifier(random_state=random_state, **params)
+            model = GradientBoostingClassifier(random_state=random_state, **params)
             model.fit(X_train, y_train)
-            val_f1 = f1_score(y_val, model.predict(X_val))
+            val_f1 = f1_score(y_val, model.predict(X_val), average='macro')
             results.append({**params, "val_f1": val_f1})
             if val_f1 > best_score:
                 best_score, best_params = val_f1, params
@@ -69,13 +69,14 @@ if __name__ == '__main__':
     save_pickle(X_test, 'data/X_test.pickle')
     save_pickle(y_test, 'data/y_test.pickle')
 
+    os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
     mlflow.set_tracking_uri("./mlruns")
-    dataset_name = "Breast Cancer Wisconsin"
+    dataset_name = "Wine"
     current_time = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     experiment_name = f"{dataset_name}_{current_time}"
     experiment_id = mlflow.create_experiment(f"{experiment_name}")
 
-    param_grid = {"n_estimators": [50, 100, 200], "max_depth": [None, 5, 10]}
+    param_grid = {"n_estimators": [50, 100, 200, 300], "max_depth": [2, 3, 5, 10]}
 
     with mlflow.start_run(experiment_id=experiment_id,
                         run_name= f"{dataset_name}"):
@@ -97,12 +98,12 @@ if __name__ == '__main__':
         # Refit the best hyperparameters on train + validation combined for the final model
         X_train_final = np.concatenate([X_train, X_val])
         y_train_final = np.concatenate([y_train, y_val])
-        forest = RandomForestClassifier(random_state=0, **best_params)
-        forest.fit(X_train_final, y_train_final)
+        model = GradientBoostingClassifier(random_state=0, **best_params)
+        model.fit(X_train_final, y_train_final)
 
-        y_predict = forest.predict(X_train_final)
+        y_predict = model.predict(X_train_final)
         mlflow.log_metrics({'Train Accuracy': accuracy_score(y_train_final, y_predict),
-                            'Train F1 Score': f1_score(y_train_final, y_predict)})
+                            'Train F1 Score': f1_score(y_train_final, y_predict, average='macro')})
 
         if not os.path.exists('models/'):
             # then create it.
@@ -111,4 +112,4 @@ if __name__ == '__main__':
         # After retraining the model
         model_version = f'model_{timestamp}'  # Use a timestamp as the version
         model_filename = f'{model_version}_dt_model.joblib'
-        dump(forest, model_filename)
+        dump(model, model_filename)

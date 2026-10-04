@@ -1,13 +1,15 @@
 import numpy as np
+from sklearn.datasets import load_wine
 from src import train_model
 
 
 def test_load_and_split_data_shapes():
     X_train, X_val, X_test, y_train, y_val, y_test = train_model.load_and_split_data()
 
+    X_wine, _ = load_wine(return_X_y=True)
     total = X_train.shape[0] + X_val.shape[0] + X_test.shape[0]
-    assert total == 569  # size of the breast cancer dataset
-    assert X_train.shape[1] == X_val.shape[1] == X_test.shape[1] == 30
+    assert total == X_wine.shape[0]  # size of the wine dataset
+    assert X_train.shape[1] == X_val.shape[1] == X_test.shape[1] == X_wine.shape[1]
     assert len(y_train) == X_train.shape[0]
     assert len(y_val) == X_val.shape[0]
     assert len(y_test) == X_test.shape[0]
